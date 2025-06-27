@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>RoomBook - 오프라인</title>
+  
+  <!-- 메타 태그 -->
+  <meta name="description" content="RoomBook이 오프라인 상태입니다">
+  <meta name="theme-color" content="#3b82f6">
+  
+  <!-- 아이콘 -->
+  <link rel="icon" href="/icons/icon-192.png">
+  <link rel="apple-touch-icon" href="/icons/apple-icon-180.png">
+  
+  <style>
+    /* 모바일 최적화 기본 스타일 */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      font-size: 16px;
+      line-height: 1.5;
+      -webkit-text-size-adjust: 100%;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #1f2937;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      overscroll-behavior: none;
+    }
+
+    .container {
+      background: white;
+      border-radius: 1.5rem;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+      padding: 2rem;
+      text-align: center;
+      max-width: 400px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .icon-container {
+      width: 80px;
+      height: 80px;
+      background: linear-gradient(135deg, #fef3c7, #fbbf24);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1.5rem;
+      position: relative;
+    }
+
+    .icon-container::before {
+      content: '';
+      position: absolute;
+      inset: -8px;
+      background: linear-gradient(135deg, #fbbf24, #f59e0b);
+      border-radius: 50%;
+      z-index: -1;
+      opacity: 0.3;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    .wifi-icon {
+      width: 40px;
+      height: 40px;
+      position: relative;
+    }
+
+    .wifi-slash {
+      stroke: #d97706;
+      stroke-width: 3;
+      stroke-linecap: round;
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        transform: scale(1);
+        opacity: 0.3;
+      }
+      50% {
+        transform: scale(1.1);
+        opacity: 0.1;
+      }
+    }
+
+    .title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #1f2937;
+      margin-bottom: 0.5rem;
+    }
+
+    .subtitle {
+      font-size: 1rem;
+      color: #6b7280;
+      margin-bottom: 2rem;
+      line-height: 1.6;
+    }
+
+    .message {
+      background: #fef3c7;
+      border: 1px solid #fbbf24;
+      border-radius: 0.75rem;
+      padding: 1rem;
+      margin-bottom: 2rem;
+      font-size: 0.875rem;
+      color: #92400e;
+    }
+
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .btn {
+      padding: 0.75rem 1.5rem;
+      border-radius: 0.75rem;
+      font-weight: 600;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      transition: all 0.2s ease;
+      font-size: 0.875rem;
+      border: none;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .btn:active {
+      transform: scale(0.95);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      color: white;
+      box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3);
+    }
+
+    .btn-primary:hover {
+      box-shadow: 0 6px 8px -1px rgba(59, 130, 246, 0.4);
+    }
+
+    .btn-secondary {
+      background: white;
+      color: #6b7280;
+      border: 1px solid #d1d5db;
+    }
+
+    .btn-secondary:hover {
+      background: #f9fafb;
+      border-color: #9ca3af;
+    }
+
+    .status-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.75rem;
+      color: #6b7280;
+      margin-top: 1.5rem;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: #ef4444;
+      border-radius: 50%;
+      animation: blink 1.5s ease-in-out infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .features {
+      margin-top: 2rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid #e5e7eb;
+    }
+
+    .features-title {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 1rem;
+    }
+
+    .features-list {
+      display: grid;
+      gap: 0.75rem;
+      text-align: left;
+    }
+
+    .feature-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 0.8rem;
+      color: #6b7280;
+    }
+
+    .feature-icon {
+      width: 16px;
+      height: 16px;
+      background: #d1fae5;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .checkmark {
+      width: 8px;
+      height: 8px;
+      background: #10b981;
+      border-radius: 50%;
+    }
+
+    /* 다크모드 대응 */
+    @media (prefers-color-scheme: dark) {
+      body {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      }
+      
+      .container {
+        background: #1f2937;
+        color: #f9fafb;
+      }
+      
+      .title {
+        color: #f9fafb;
+      }
+      
+      .subtitle {
+        color: #d1d5db;
+      }
+    }
+
+    /* 애니메이션 */
+    .container {
+      animation: slideUp 0.5s ease-out;
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- 아이콘 -->
+    <div class="icon-container">
+      <svg class="wifi-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M3 9a9 9 0 0118 0" stroke="#d97706" stroke-width="2" stroke-linecap="round"/>
+        <path d="M6 13a5 5 0 0112 0" stroke="#d97706" stroke-width="2" stroke-linecap="round"/>
+        <path d="M9 17a2 2 0 014 0" stroke="#d97706" stroke-width="2" stroke-linecap="round"/>
+        <line class="wifi-slash" x1="3" y1="3" x2="21" y2="21"/>
+      </svg>
+    </div>
+
+    <!-- 제목 -->
+    <h1 class="title">오프라인 상태입니다</h1>
+    <p class="subtitle">인터넷 연결을 확인하고<br>다시 시도해주세요</p>
+
+    <!-- 메시지 -->
+    <div class="message">
+      <strong>💡 참고:</strong> 일부 기능은 캐시된 데이터로 계속 사용할 수 있습니다.
+    </div>
+
+    <!-- 액션 버튼 -->
+    <div class="actions">
+      <button onclick="window.location.reload()" class="btn btn-primary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 12a9 9 0 019-9 9.75 9.75 0 016.74 2.74L21 8"/>
+          <path d="M21 3v5h-5"/>
+          <path d="M21 12a9 9 0 01-9 9 9.75 9.75 0 01-6.74-2.74L3 16"/>
+          <path d="M3 21v-5h5"/>
+        </svg>
+        다시 시도
+      </button>
+      
+      <a href="/" class="btn btn-secondary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+          <polyline points="9,22 9,12 15,12 15,22"/>
+        </svg>
+        홈으로 가기
+      </a>
+    </div>
+
+    <!-- 연결 상태 -->
+    <div class="status-indicator">
+      <div class="status-dot"></div>
+      <span id="connectionStatus">연결 확인 중...</span>
+    </div>
+
+    <!-- 오프라인 기능 안내 -->
+    <div class="features">
+      <div class="features-title">오프라인에서도 가능한 기능</div>
+      <div class="features-list">
+        <div class="feature-item">
+          <div class="feature-icon">
+            <div class="checkmark"></div>
+          </div>
+          <span>캐시된 회의실 목록 보기</span>
+        </div>
+        <div class="feature-item">
+          <div class="feature-icon">
+            <div class="checkmark"></div>
+          </div>
+          <span>저장된 예약 정보 확인</span>
+        </div>
+        <div class="feature-item">
+          <div class="feature-icon">
+            <div class="checkmark"></div>
+          </div>
+          <span>앱 기본 기능 사용</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 연결 상태 확인
+    function updateConnectionStatus() {
+      const statusElement = document.getElementById('connectionStatus')
+      
+      if (navigator.onLine) {
+        statusElement.textContent = '온라인 - 새로고침하세요'
+        statusElement.style.color = '#10b981'
+      } else {
+        statusElement.textContent = '오프라인'
+        statusElement.style.color = '#ef4444'
+      }
+    }
+
+    // 연결 상태 이벤트 리스너
+    window.addEventListener('online', () => {
+      updateConnectionStatus()
+      // 온라인 상태가 되면 자동으로 홈으로 이동
+      setTimeout(() => {
+        window.location.href = '/'
+      }, 1000)
+    })
+
+    window.addEventListener('offline', updateConnectionStatus)
+
+    // 초기 상태 확인
+    updateConnectionStatus()
+
+    // 주기적으로 연결 상태 확인 (5초마다)
+    setInterval(() => {
+      // 실제 네트워크 요청으로 연결 상태 확인
+      fetch('/', { 
+        method: 'HEAD',
+        cache: 'no-cache'
+      })
+      .then(() => {
+        if (!navigator.onLine) {
+          // navigator.onLine이 false인데 실제로는 연결된 경우
+          window.location.href = '/'
+        }
+      })
+      .catch(() => {
+        // 실제로 연결이 안된 상태
+      })
+    }, 5000)
+
+    // 키보드 단축키
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'r' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault()
+        window.location.reload()
+      }
+      if (e.key === 'h' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault()
+        window.location.href = '/'
+      }
+    })
+
+    // PWA 설치 상태 확인
+    if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) {
+      console.log('PWA 모드에서 실행 중')
+    }
+
+    // Service Worker 메시지 수신
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data && event.data.type === 'NETWORK_RESTORED') {
+          window.location.href = '/'
+        }
+      })
+    }
+
+    console.log('RoomBook 오프라인 페이지 로드됨')
+  </script>
+</body>
+</html> 
