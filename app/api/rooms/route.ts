@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
             const todayBookings = await getTodayBookingsForRoom(room.id)
             
             // 현재 시간 기준으로 상태 판단 (한국 시간 사용)
-            const now = new Date(new Date().getTime() + (9 * 60 * 60 * 1000)) // UTC+9 한국 시간
+            const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Seoul"}))
             const currentTime = now.toTimeString().slice(0, 5) // HH:MM 형식
             
             // 현재 사용중인 예약 찾기

@@ -9,6 +9,7 @@ interface Room {
   name: string
   capacity: number
   location: string
+  equipment: string
 }
 
 interface Booking {
@@ -19,6 +20,7 @@ interface Booking {
   endTime: string
   title: string
   bookerName: string
+  status: 'confirmed' | 'pending' | 'cancelled'
 }
 
 export default function BookingStatusPage() {
@@ -77,9 +79,9 @@ export default function BookingStatusPage() {
     return `${year}-${month}-${day}`
   }
 
-  // 오늘 날짜 계산 (한국 시간 기준)
+  // 오늘 날짜 계산 (사용자 로컬 시간)
   const getTodayString = () => {
-    const now = new Date(new Date().getTime() + (9 * 60 * 60 * 1000)) // UTC+9 한국 시간
+    const now = new Date() // 사용자 로컬 시간 사용
     return formatDate(now)
   }
 
@@ -118,40 +120,81 @@ export default function BookingStatusPage() {
     
     setLoading(true)
     try {
-      const response = await fetch(`/api/bookings?roomId=${selectedRoom}&date=${selectedDate}`)
+      const response = await fetch(`/api/reservations?roomId=${selectedRoom}&date=${selectedDate}`)
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
       const data = await response.json()
       
       if (data.success) {
-        setBookings(data.data || [])
+        // cancelled 상태인 예약들을 제외하고 active한 예약들만 사용
+        const activeBookings = (data.data || []).filter((booking: Booking) => 
+          booking.status !== 'cancelled'
+        )
+        setBookings(activeBookings)
+      } else {
+        console.error('API 응답 오류:', data.error || data.message)
+        setBookings([])
       }
     } catch (error) {
       console.error('예약 정보 로딩 실패:', error)
+      // Production 환경에서 네트워크 오류 시 빈 배열로 설정하여 UI 깨짐 방지
+      setBookings([])
     } finally {
       setLoading(false)
     }
   }
 
-  // 시간대별 예약 여부 확인
-  const isTimeSlotBooked = (time: string) => {
-    return bookings.some(booking => {
-      const bookingStart = booking.startTime
-      const bookingEnd = booking.endTime
-      return time >= bookingStart && time < bookingEnd
-    })
+  // 시간대별 예약 상태 확인 (30분 단위로 세분화) - cancelled 예약 제외
+  const getTimeSlotStatus = (time: string) => {
+    const hour = parseInt(time.split(':')[0])
+    const firstHalf = `${hour.toString().padStart(2, '0')}:00`
+    const secondHalf = `${hour.toString().padStart(2, '0')}:30`
+    
+    // active한 예약들만 고려 (cancelled 제외 - 이중 보안)
+    const activeBookings = bookings.filter(booking => booking.status !== 'cancelled')
+    
+    const firstHalfBooked = activeBookings.some(booking => 
+      firstHalf >= booking.startTime && firstHalf < booking.endTime
+    )
+    const secondHalfBooked = activeBookings.some(booking => 
+      secondHalf >= booking.startTime && secondHalf < booking.endTime
+    )
+    
+    if (firstHalfBooked && secondHalfBooked) {
+      return { status: 'full', available: [] }
+    } else if (firstHalfBooked) {
+      return { status: 'partial', available: [secondHalf] }
+    } else if (secondHalfBooked) {
+      return { status: 'partial', available: [firstHalf] }
+    } else {
+      return { status: 'available', available: [firstHalf, secondHalf] }
+    }
   }
 
-  // 시간 클릭 핸들러
-  const handleTimeSlotClick = (time: string) => {
-    if (isTimeSlotBooked(time)) return
+  // 시간 클릭 핸들러 (부분 예약 고려)
+  const handleTimeSlotClick = (time: string, slotStatus: any) => {
+    if (slotStatus.status === 'full') return
     
-    // 예약 페이지로 이동하면서 선택된 정보 전달
-    const params = new URLSearchParams({
-      roomId: selectedRoom,
-      date: selectedDate,
-      startTime: time
-    })
-    
-    router.push(`/booking/new?${params.toString()}`)
+    // 사용 가능한 시간이 하나만 있으면 그 시간으로 바로 이동
+    if (slotStatus.status === 'partial' && slotStatus.available.length === 1) {
+      const params = new URLSearchParams({
+        roomId: selectedRoom,
+        date: selectedDate,
+        startTime: slotStatus.available[0]
+      })
+      router.push(`/booking/new?${params.toString()}`)
+    } else {
+      // 완전히 사용 가능하면 00분으로 기본 이동
+      const params = new URLSearchParams({
+        roomId: selectedRoom,
+        date: selectedDate,
+        startTime: time
+      })
+      router.push(`/booking/new?${params.toString()}`)
+    }
   }
 
   const calendar = generateCalendar()
@@ -180,7 +223,7 @@ export default function BookingStatusPage() {
             >
               <ArrowLeft className="w-5 h-5 text-gray-600" />
             </button>
-            <h1 className="text-lg font-semibold text-gray-900">예약 현황</h1>
+            <h1 className="text-lg font-semibold text-gray-900">예약 하기</h1>
           </div>
         </div>
       </header>
@@ -201,7 +244,7 @@ export default function BookingStatusPage() {
                 }`}
               >
                 <div className="font-medium">{room.name}</div>
-                <div className="text-sm text-gray-500">{room.location} • {room.capacity}명</div>
+                <div className="text-sm text-gray-500">{room.capacity}명 • {room.equipment}</div>
               </button>
             ))}
           </div>
@@ -229,8 +272,12 @@ export default function BookingStatusPage() {
 
           {/* 요일 헤더 */}
           <div className="grid grid-cols-7 gap-1 mb-2">
-            {['일', '월', '화', '수', '목', '금', '토'].map((day) => (
-              <div key={day} className="text-center text-sm font-medium text-gray-500 py-2">
+            {['일', '월', '화', '수', '목', '금', '토'].map((day, index) => (
+              <div key={day} className={`text-center text-sm font-medium py-2 ${
+                index === 0 ? 'text-red-500' : // 일요일 빨간색
+                index === 6 ? 'text-blue-500' : // 토요일 파란색
+                'text-gray-500'
+              }`}>
                 {day}
               </div>
             ))}
@@ -258,7 +305,9 @@ export default function BookingStatusPage() {
                         ${isCurrentDay && !isSelected ? 'bg-blue-100 text-blue-600' : ''}
                         ${isPast ? 'text-gray-300 cursor-not-allowed' : 'hover:bg-gray-100'}
                         ${!isThisMonth ? 'text-gray-300' : ''}
-                        ${!isPast && !isSelected && !isCurrentDay ? 'text-gray-700' : ''}
+                        ${!isPast && !isSelected && !isCurrentDay && isThisMonth && dayIndex === 0 ? 'text-red-500' : ''}
+                        ${!isPast && !isSelected && !isCurrentDay && isThisMonth && dayIndex === 6 ? 'text-blue-500' : ''}
+                        ${!isPast && !isSelected && !isCurrentDay && isThisMonth && dayIndex !== 0 && dayIndex !== 6 ? 'text-gray-700' : ''}
                       `}
                     >
                       {date.getDate()}
@@ -284,25 +333,46 @@ export default function BookingStatusPage() {
             ) : (
               <div className="grid grid-cols-2 gap-2">
                 {timeSlots.map((time) => {
-                  const isBooked = isTimeSlotBooked(time)
+                  const slotStatus = getTimeSlotStatus(time)
                   const endTime = `${(parseInt(time.split(':')[0]) + 1).toString().padStart(2, '0')}:00`
                   
                   return (
                     <button
                       key={time}
-                      onClick={() => handleTimeSlotClick(time)}
-                      disabled={isBooked}
+                      onClick={() => handleTimeSlotClick(time, slotStatus)}
+                      disabled={slotStatus.status === 'full'}
                       className={`
                         p-3 rounded-lg text-sm font-medium transition-colors
-                        ${isBooked 
+                        ${slotStatus.status === 'full' 
                           ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                          : slotStatus.status === 'partial'
+                          ? 'bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200'
                           : 'bg-blue-50 text-blue-600 hover:bg-blue-100 active:bg-blue-200'
                         }
                       `}
                     >
-                      {time} - {endTime}
-                      {isBooked && (
-                        <div className="text-xs text-gray-500 mt-1">예약됨</div>
+                      <div>{time} - {endTime}</div>
+                      {slotStatus.status === 'full' && (
+                        <div className="text-xs text-gray-500 mt-1">완전 예약됨</div>
+                      )}
+                      {slotStatus.status === 'partial' && (
+                        <div className="text-xs text-orange-600 mt-1">
+                          {(() => {
+                            const availableTime = slotStatus.available[0]
+                            const [hour, minute] = availableTime.split(':')
+                            
+                            if (minute === '00') {
+                              // 00분이면 해당 시간의 30분까지 사용가능
+                              return `~${hour}:30 사용가능`
+                            } else {
+                              // 30분이면 해당 시간부터 사용가능  
+                              return `${availableTime}~ 사용가능`
+                            }
+                          })()}
+                        </div>
+                      )}
+                      {slotStatus.status === 'available' && (
+                        <div className="text-xs text-blue-500 mt-1">사용가능</div>
                       )}
                     </button>
                   )

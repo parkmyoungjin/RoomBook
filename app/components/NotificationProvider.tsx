@@ -17,7 +17,7 @@ export default function NotificationProvider({ children }: { children: React.Rea
         const now = new Date();
         const today = now.toISOString().split('T')[0];
         
-        const response = await fetch(`/api/bookings?date=${today}&status=confirmed`);
+        const response = await fetch(`/api/reservations?date=${today}&status=confirmed`);
         const result = await response.json();
         
         if (result.success && result.data) {

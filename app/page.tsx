@@ -1,7 +1,14 @@
-import React from 'react';
+'use client';
+
+import React, { useState } from 'react';
 import Link from 'next/link';
+import NotificationSettings from './components/NotificationSettings';
+import CalendarBulkManager from './components/CalendarBulkManager';
 
 export default function HomePage() {
+  const [showNotificationSettings, setShowNotificationSettings] = useState(false);
+  const [showCalendarManager, setShowCalendarManager] = useState(false);
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* iOS 스타일 헤더 */}
@@ -32,41 +39,59 @@ export default function HomePage() {
               href="/booking/status"
               className="block w-full bg-blue-500 text-white text-center py-4 rounded-xl font-medium shadow-sm active:bg-blue-600 transition-colors"
             >
-              회의실 예약하기
+              예약 하기
             </Link>
             
             <Link 
-              href="/bookings"
+              href="/reservations"
               className="block w-full bg-white text-blue-500 text-center py-4 rounded-xl font-medium border border-blue-500 shadow-sm active:bg-blue-50 transition-colors"
             >
-              예약 내역 보기
+              예약 현황
             </Link>
           </div>
 
           {/* 기능 카드들 */}
           <div className="grid grid-cols-2 gap-3 mt-6">
-            <div className="bg-white rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow active:bg-gray-50">
+            <button
+              onClick={() => setShowCalendarManager(true)}
+              className="bg-white rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow active:bg-gray-50 text-left"
+            >
               <div className="text-center">
                 <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">
                   <span className="text-green-600 text-sm">📊</span>
                 </div>
-                <h3 className="text-sm font-medium text-gray-900">예약 현황</h3>
-                <p className="text-xs text-gray-500 mt-1">달력으로 보기</p>
+                <h3 className="text-sm font-medium text-gray-900">다중 예약</h3>
+                <p className="text-xs text-gray-500 mt-1">한번에 예약하러 가기</p>
               </div>
-            </div>
+            </button>
             
-            <div className="bg-white rounded-xl p-4 shadow-sm">
+            <button
+              onClick={() => setShowNotificationSettings(true)}
+              className="bg-white rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow active:bg-gray-50 text-left"
+            >
               <div className="text-center">
-                <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <span className="text-purple-600 text-sm">🏢</span>
+                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                  <span className="text-blue-600 text-sm">🔔</span>
                 </div>
-                <h3 className="text-sm font-medium text-gray-900">다양한 회의실</h3>
-                <p className="text-xs text-gray-500 mt-1">용도별 선택</p>
+                <h3 className="text-sm font-medium text-gray-900">알림 설정</h3>
+                <p className="text-xs text-gray-500 mt-1">맞춤 알림 설정</p>
               </div>
-            </div>
+            </button>
           </div>
         </div>
       </div>
+
+      {/* 알림 설정 모달 */}
+      <NotificationSettings
+        isOpen={showNotificationSettings}
+        onClose={() => setShowNotificationSettings(false)}
+      />
+
+      {/* 스마트 달력 관리자 모달 */}
+      <CalendarBulkManager
+        isOpen={showCalendarManager}
+        onClose={() => setShowCalendarManager(false)}
+      />
     </div>
   );
 } 

@@ -9,7 +9,6 @@ import {
   Users, 
   MapPin, 
   FileText,
-  Mail,
   User,
   Check,
   AlertCircle
@@ -37,7 +36,7 @@ export default function NewBookingPage() {
     roomId: '',
     title: '',
     bookerName: '',
-    bookerEmail: '',
+    employeeId: '',
     date: '',
     startTime: '',
     endTime: '',
@@ -60,9 +59,9 @@ export default function NewBookingPage() {
 
   const timeSlots = generateTimeSlots()
 
-  // 오늘 날짜 계산 (한국 시간 기준)
+  // 오늘 날짜 계산 (사용자 로컬 시간)
   const today = (() => {
-    const now = new Date(new Date().getTime() + (9 * 60 * 60 * 1000)) // UTC+9 한국 시간
+    const now = new Date() // 사용자 로컬 시간 사용
     return now.toISOString().split('T')[0]
   })()
 
@@ -132,15 +131,15 @@ export default function NewBookingPage() {
     if (!formData.roomId) newErrors.roomId = '회의실을 선택해주세요'
     if (!formData.title.trim()) newErrors.title = '제목을 입력해주세요'
     if (!formData.bookerName.trim()) newErrors.bookerName = '예약자 이름을 입력해주세요'
-    if (!formData.bookerEmail.trim()) newErrors.bookerEmail = '이메일을 입력해주세요'
+    if (!formData.employeeId.trim()) newErrors.employeeId = '사번을 입력해주세요'
     if (!formData.date) newErrors.date = '날짜를 선택해주세요'
     if (!formData.startTime) newErrors.startTime = '시작 시간을 선택해주세요'
     if (!formData.endTime) newErrors.endTime = '종료 시간을 선택해주세요'
 
-    // 이메일 형식 검증
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (formData.bookerEmail && !emailRegex.test(formData.bookerEmail)) {
-      newErrors.bookerEmail = '올바른 이메일 형식을 입력해주세요'
+    // 사번 형식 검증 (7자리 숫자)
+    const employeeIdRegex = /^\d{7}$/
+    if (formData.employeeId && !employeeIdRegex.test(formData.employeeId)) {
+      newErrors.employeeId = '사번은 7자리 숫자여야 합니다'
     }
 
     // 시간 검증
@@ -169,7 +168,7 @@ export default function NewBookingPage() {
     setLoading(true)
     
     try {
-      const response = await fetch('/api/bookings', {
+      const response = await fetch('/api/reservations', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -224,10 +223,8 @@ export default function NewBookingPage() {
             >
               <ArrowLeft className="w-6 h-6 text-gray-600" />
             </button>
-            <h1 className="text-lg font-semibold text-gray-900">새 예약</h1>
+            <h1 className="text-lg font-semibold text-gray-900">예약 하기</h1>
           </div>
-          
-
         </div>
       </header>
 
@@ -289,17 +286,17 @@ export default function NewBookingPage() {
           <div className="card p-4 space-y-4">
             <h3 className="font-medium text-gray-900">예약 정보</h3>
             
-            {/* 제목 */}
+            {/* 부서명 */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 <FileText className="w-4 h-4 inline mr-1" />
-                제목
+                부서명
               </label>
               <input
                 type="text"
                 value={formData.title}
                 onChange={(e) => handleInputChange('title', e.target.value)}
-                placeholder="회의 제목을 입력하세요"
+                placeholder="부서명을 입력하세요"
                 className={`input-field ${errors.title ? 'border-error-500' : ''}`}
               />
               {errors.title && (
@@ -424,21 +421,25 @@ export default function NewBookingPage() {
               )}
             </div>
 
-            {/* 이메일 */}
+            {/* 사번 */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                <Mail className="w-4 h-4 inline mr-1" />
-                이메일
+                <User className="w-4 h-4 inline mr-1" />
+                사번 (7자리)
               </label>
               <input
-                type="email"
-                value={formData.bookerEmail}
-                onChange={(e) => handleInputChange('bookerEmail', e.target.value)}
-                placeholder="이메일 주소"
-                className={`input-field ${errors.bookerEmail ? 'border-error-500' : ''}`}
+                type="text"
+                value={formData.employeeId}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/\D/g, '').slice(0, 7)
+                  handleInputChange('employeeId', value)
+                }}
+                placeholder="1234567"
+                maxLength={7}
+                className={`input-field ${errors.employeeId ? 'border-error-500' : ''}`}
               />
-              {errors.bookerEmail && (
-                <p className="text-sm text-error-600 mt-1">{errors.bookerEmail}</p>
+              {errors.employeeId && (
+                <p className="text-sm text-error-600 mt-1">{errors.employeeId}</p>
               )}
             </div>
           </div>

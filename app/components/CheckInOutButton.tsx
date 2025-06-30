@@ -30,7 +30,7 @@ export default function CheckInOutButton({ booking, onStatusChange }: CheckInOut
     setMessage('');
 
     try {
-      const response = await fetch(`/api/bookings/${booking.id}/checkin`, {
+      const response = await fetch(`/api/reservations/${booking.id}/checkin`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -60,7 +60,7 @@ export default function CheckInOutButton({ booking, onStatusChange }: CheckInOut
     setMessage('');
 
     try {
-      const response = await fetch(`/api/bookings/${booking.id}/checkout`, {
+      const response = await fetch(`/api/reservations/${booking.id}/checkout`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

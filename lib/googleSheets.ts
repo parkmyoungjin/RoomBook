@@ -72,7 +72,7 @@ export interface Booking {
   roomName?: string
   title: string
   bookerName: string
-  bookerEmail: string
+  employeeId: string
   startTime: string
   endTime: string
   date: string
@@ -94,12 +94,44 @@ export interface BookingRequest {
   roomId: string
   title: string
   bookerName: string
-  bookerEmail: string
+  employeeId: string
   startTime: string
   endTime: string
   date: string
   purpose: string
   participants: number
+}
+
+// 일괄 예약을 위한 새로운 인터페이스
+export interface BulkBookingRequest {
+  dates: string[] // 여러 날짜 배열
+  roomId: string
+  title: string
+  bookerName: string
+  employeeId: string
+  startTime: string
+  endTime: string
+  purpose: string
+  participants: number
+  template?: {
+    name: string
+    description: string
+  }
+}
+
+export interface BulkBookingResult {
+  success: boolean
+  created: Booking[]
+  failed: {
+    date: string
+    error: string
+    suggestion?: {
+      roomId?: string
+      startTime?: string
+      endTime?: string
+    }
+  }[]
+  total: number
 }
 
 // 회의실 목록 가져오기
@@ -163,7 +195,7 @@ export const getBookings = async (date?: string): Promise<Booking[]> => {
         roomName: row[2] || '',
         title: row[3] || '',
         bookerName: row[4] || '',
-        bookerEmail: row[5] || '',
+        employeeId: row[5] || '',
         startTime: row[6] || '',
         endTime: row[7] || '',
         date: row[8] || '',
@@ -220,7 +252,7 @@ export const createBooking = async (bookingData: BookingRequest): Promise<Bookin
       roomName,
       title: bookingData.title,
       bookerName: bookingData.bookerName,
-      bookerEmail: bookingData.bookerEmail,
+      employeeId: bookingData.employeeId,
       startTime: bookingData.startTime,
       endTime: bookingData.endTime,
       date: bookingData.date,
@@ -250,7 +282,7 @@ export const createBooking = async (bookingData: BookingRequest): Promise<Bookin
           newBooking.roomName,
           newBooking.title,
           newBooking.bookerName,
-          newBooking.bookerEmail,
+          newBooking.employeeId,
           newBooking.startTime,
           newBooking.endTime,
           newBooking.date,
@@ -406,7 +438,7 @@ export const getBookingById = async (bookingId: string): Promise<Booking | null>
       roomName: row[2] || '',
       title: row[3] || '',
       bookerName: row[4] || '',
-      bookerEmail: row[5] || '',
+      employeeId: row[5] || '',
       startTime: row[6] || '',
       endTime: row[7] || '',
       date: row[8] || '',
@@ -468,7 +500,7 @@ export const updateBooking = async (
       currentRow[2], // roomName
       currentRow[3], // title
       currentRow[4], // bookerName
-      currentRow[5], // bookerEmail
+      currentRow[5], // employeeId
       currentRow[6], // startTime
       currentRow[7], // endTime
       currentRow[8], // date
@@ -564,6 +596,163 @@ export const checkOutBooking = async (bookingId: string): Promise<boolean> => {
 export const markAsNoShow = async (bookingId: string): Promise<boolean> => {
   return await updateBooking(bookingId, {
     isNoShow: true,
+    isCheckedIn: false,
     status: 'cancelled',
   })
+}
+
+// 일괄 예약 생성
+export const createBulkBookings = async (bulkData: BulkBookingRequest): Promise<BulkBookingResult> => {
+  const result: BulkBookingResult = {
+    success: true,
+    created: [],
+    failed: [],
+    total: bulkData.dates.length
+  }
+
+  for (const date of bulkData.dates) {
+    try {
+      // 충돌 검사
+      const hasConflict = await checkBookingConflict(
+        bulkData.roomId,
+        date,
+        bulkData.startTime,
+        bulkData.endTime
+      )
+
+      if (hasConflict) {
+        // 대안 제안 로직
+        const suggestion = await suggestAlternative(bulkData.roomId, date, bulkData.startTime, bulkData.endTime)
+        result.failed.push({
+          date,
+          error: '해당 시간에 이미 예약이 있습니다.',
+          suggestion
+        })
+        result.success = false
+        continue
+      }
+
+      // 개별 예약 생성
+      const bookingRequest: BookingRequest = {
+        roomId: bulkData.roomId,
+        title: bulkData.title,
+        bookerName: bulkData.bookerName,
+        employeeId: bulkData.employeeId,
+        startTime: bulkData.startTime,
+        endTime: bulkData.endTime,
+        date,
+        purpose: bulkData.purpose,
+        participants: bulkData.participants
+      }
+
+      const booking = await createBooking(bookingRequest)
+      result.created.push(booking)
+
+    } catch (error) {
+      result.failed.push({
+        date,
+        error: error instanceof Error ? error.message : '알 수 없는 오류',
+      })
+      result.success = false
+    }
+  }
+
+  return result
+}
+
+// 대안 제안 함수
+const suggestAlternative = async (
+  roomId: string, 
+  date: string, 
+  startTime: string, 
+  endTime: string
+): Promise<{ roomId?: string; startTime?: string; endTime?: string }> => {
+  try {
+    const rooms = await getMeetingRooms()
+    const bookings = await getBookings(date)
+
+    // 같은 시간대에 사용 가능한 다른 회의실 찾기
+    for (const room of rooms) {
+      if (room.id === roomId || room.status !== 'active') continue
+      
+      const hasConflict = await checkBookingConflict(room.id, date, startTime, endTime)
+      if (!hasConflict) {
+        return { roomId: room.id }
+      }
+    }
+
+    // 같은 회의실의 다른 시간대 제안
+    const timeSlots = generateTimeSlots()
+    for (const slot of timeSlots) {
+      const endTimeSlot = calculateEndTime(slot, startTime, endTime)
+      const hasConflict = await checkBookingConflict(roomId, date, slot, endTimeSlot)
+      if (!hasConflict) {
+        return { startTime: slot, endTime: endTimeSlot }
+      }
+    }
+
+    return {}
+  } catch (error) {
+    return {}
+  }
+}
+
+// 시간 슬롯 생성
+const generateTimeSlots = (): string[] => {
+  const slots = []
+  for (let hour = 9; hour <= 17; hour++) {
+    slots.push(`${hour.toString().padStart(2, '0')}:00`)
+    slots.push(`${hour.toString().padStart(2, '0')}:30`)
+  }
+  return slots
+}
+
+// 종료 시간 계산
+const calculateEndTime = (newStartTime: string, originalStartTime: string, originalEndTime: string): string => {
+  const [startHour, startMin] = originalStartTime.split(':').map(Number)
+  const [endHour, endMin] = originalEndTime.split(':').map(Number)
+  const [newHour, newMin] = newStartTime.split(':').map(Number)
+  
+  const duration = (endHour * 60 + endMin) - (startHour * 60 + startMin)
+  const newEndMinutes = (newHour * 60 + newMin) + duration
+  
+  const finalHour = Math.floor(newEndMinutes / 60)
+  const finalMin = newEndMinutes % 60
+  
+  return `${finalHour.toString().padStart(2, '0')}:${finalMin.toString().padStart(2, '0')}`
+}
+
+// 일괄 예약 취소
+export const cancelBulkBookings = async (bookingIds: string[]): Promise<{ success: number; failed: string[] }> => {
+  const result = { success: 0, failed: [] as string[] }
+  
+  for (const bookingId of bookingIds) {
+    try {
+      await updateBookingStatus(bookingId, 'cancelled')
+      result.success++
+    } catch (error) {
+      result.failed.push(bookingId)
+    }
+  }
+  
+  return result
+}
+
+// 일괄 예약 수정 (시간 변경 등)
+export const updateBulkBookings = async (
+  bookingIds: string[], 
+  updates: Partial<Pick<Booking, 'startTime' | 'endTime' | 'title' | 'purpose' | 'participants'>>
+): Promise<{ success: number; failed: string[] }> => {
+  const result = { success: 0, failed: [] as string[] }
+  
+  for (const bookingId of bookingIds) {
+    try {
+      await updateBooking(bookingId, updates)
+      result.success++
+    } catch (error) {
+      result.failed.push(bookingId)
+    }
+  }
+  
+  return result
 } 
