@@ -183,7 +183,7 @@ Query Parameters:
   "roomId": "room1",
   "title": "팀 미팅",
   "bookerName": "김철수",
-  "bookerEmail": "kim@company.com",
+  "employeeId": "1234567",
   "startTime": "14:00",
   "endTime": "15:30",
   "date": "2024-01-15",
