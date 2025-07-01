@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Bell, Clock, X, TestTube } from 'lucide-react';
+import { Bell, X, TestTube } from 'lucide-react';
 
 interface NotificationSettingsProps {
   isOpen: boolean;
@@ -10,39 +10,28 @@ interface NotificationSettingsProps {
 
 interface NotificationSetting {
   enabled: boolean;
-  time: string; // HH:MM 형식
-  days: string[]; // ['monday', 'tuesday', ...]
-  type: 'daily' | 'beforeMeeting';
-  beforeMinutes?: number; // 회의 전 몇 분 전에 알림
+  beforeMinutes: number; // 회의 전 몇 분 전에 알림
 }
 
 export default function NotificationSettings({ isOpen, onClose }: NotificationSettingsProps) {
   const [settings, setSettings] = useState<NotificationSetting>({
     enabled: false,
-    time: '09:00',
-    days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
-    type: 'daily',
     beforeMinutes: 10
   });
 
   const [hasPermission, setHasPermission] = useState(false);
   const [testingNotification, setTestingNotification] = useState(false);
 
-  const days = [
-    { key: 'monday', label: '월' },
-    { key: 'tuesday', label: '화' },
-    { key: 'wednesday', label: '수' },
-    { key: 'thursday', label: '목' },
-    { key: 'friday', label: '금' },
-    { key: 'saturday', label: '토' },
-    { key: 'sunday', label: '일' },
-  ];
-
   useEffect(() => {
     // 로컬스토리지에서 설정 로드
     const savedSettings = localStorage.getItem('notificationSettings');
     if (savedSettings) {
-      setSettings(JSON.parse(savedSettings));
+      const parsed = JSON.parse(savedSettings);
+      // 기존 설정이 old format이면 새 format으로 변환
+      setSettings({
+        enabled: parsed.enabled || false,
+        beforeMinutes: parsed.beforeMinutes || 10
+      });
     }
 
     // 알림 권한 확인
@@ -127,23 +116,6 @@ export default function NotificationSettings({ isOpen, onClose }: NotificationSe
     setSettings(prev => ({ ...prev, enabled: !prev.enabled }));
   };
 
-  const updateTime = (time: string) => {
-    setSettings(prev => ({ ...prev, time }));
-  };
-
-  const toggleDay = (day: string) => {
-    setSettings(prev => ({
-      ...prev,
-      days: prev.days.includes(day)
-        ? prev.days.filter(d => d !== day)
-        : [...prev.days, day]
-    }));
-  };
-
-  const updateType = (type: 'daily' | 'beforeMeeting') => {
-    setSettings(prev => ({ ...prev, type }));
-  };
-
   const updateBeforeMinutes = (minutes: number) => {
     setSettings(prev => ({ ...prev, beforeMinutes: minutes }));
   };
@@ -169,7 +141,10 @@ export default function NotificationSettings({ isOpen, onClose }: NotificationSe
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <Bell className="w-5 h-5 text-blue-500" />
-              <span className="text-gray-900 font-medium">알림 활성화</span>
+              <div>
+                <span className="text-gray-900 font-medium">회의 시작 전 알림</span>
+                <p className="text-sm text-gray-500">회의 시작 전 설정한 시간에 알려드립니다</p>
+              </div>
             </div>
             <button
               onClick={toggleEnabled}
@@ -194,7 +169,7 @@ export default function NotificationSettings({ isOpen, onClose }: NotificationSe
           )}
 
           {/* 테스트 알림 버튼 */}
-          <div className="bg-gray-50 rounded-lg p-4">
+          <div className="border-t border-gray-200 pt-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 <TestTube className="w-5 h-5 text-purple-500" />
@@ -219,82 +194,11 @@ export default function NotificationSettings({ isOpen, onClose }: NotificationSe
 
           {settings.enabled && (
             <>
-              {/* 알림 유형 */}
-              <div className="space-y-3">
-                <h3 className="text-lg font-medium text-gray-900">알림 유형</h3>
-                
-                <div className="space-y-3">
-                  <label className="flex items-center space-x-3 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="notificationType"
-                      checked={settings.type === 'daily'}
-                      onChange={() => updateType('daily')}
-                      className="w-4 h-4 text-blue-500"
-                    />
-                    <div>
-                      <span className="text-gray-900 font-medium">매일 정해진 시간</span>
-                      <p className="text-sm text-gray-500">오늘의 회의 일정을 알려드립니다</p>
-                    </div>
-                  </label>
-
-                  <label className="flex items-center space-x-3 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="notificationType"
-                      checked={settings.type === 'beforeMeeting'}
-                      onChange={() => updateType('beforeMeeting')}
-                      className="w-4 h-4 text-blue-500"
-                    />
-                    <div>
-                      <span className="text-gray-900 font-medium">회의 시작 전</span>
-                      <p className="text-sm text-gray-500">회의 시작 몇 분 전에 알려드립니다</p>
-                    </div>
-                  </label>
-                </div>
-              </div>
-
-              {settings.type === 'daily' && (
-                <>
-                  {/* 시간 설정 */}
-                  <div className="space-y-3">
-                    <h3 className="text-lg font-medium text-gray-900">알림 시간</h3>
-                    <div className="flex items-center space-x-3">
-                      <Clock className="w-5 h-5 text-gray-400" />
-                      <input
-                        type="time"
-                        value={settings.time}
-                        onChange={(e) => updateTime(e.target.value)}
-                        className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
-                  </div>
-
-                  {/* 요일 설정 */}
-                  <div className="space-y-3">
-                    <h3 className="text-lg font-medium text-gray-900">알림 요일</h3>
-                    <div className="grid grid-cols-7 gap-2">
-                      {days.map(day => (
-                        <button
-                          key={day.key}
-                          onClick={() => toggleDay(day.key)}
-                          className={`w-10 h-10 rounded-full text-sm font-medium transition-colors ${
-                            settings.days.includes(day.key)
-                              ? 'bg-blue-500 text-white'
-                              : 'bg-gray-100 text-gray-600'
-                          }`}
-                        >
-                          {day.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {settings.type === 'beforeMeeting' && (
+              {/* 알림 시점 */}
+              <div className="border-t border-gray-200 pt-6">
                 <div className="space-y-3">
                   <h3 className="text-lg font-medium text-gray-900">알림 시점</h3>
+                  <p className="text-sm text-gray-500">회의 시작 몇 분 전에 알림을 받을지 선택하세요</p>
                   <div className="space-y-2">
                     {[5, 10, 15, 30].map(minutes => (
                       <label key={minutes} className="flex items-center space-x-3 cursor-pointer">
@@ -310,7 +214,7 @@ export default function NotificationSettings({ isOpen, onClose }: NotificationSe
                     ))}
                   </div>
                 </div>
-              )}
+              </div>
             </>
           )}
 

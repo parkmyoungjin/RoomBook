@@ -17,10 +17,13 @@ import {
   User,
   Mail,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Lock,
+  LogIn
 } from 'lucide-react'
 import CheckInOutButton from '@/app/components/CheckInOutButton'
 import { Booking } from '@/lib/googleSheets'
+import { useUser } from '@/app/contexts/UserContext'
 
 interface Room {
   id: string
@@ -29,6 +32,7 @@ interface Room {
 
 export default function ReservationsPage() {
   const router = useRouter()
+  const { isLoggedIn, user } = useUser()
   const [bookings, setBookings] = useState<Booking[]>([])
   const [rooms, setRooms] = useState<Room[]>([])
   const [loading, setLoading] = useState(true)
@@ -60,11 +64,16 @@ export default function ReservationsPage() {
     status: 'confirmed' as '' | 'confirmed' | 'pending' | 'cancelled',
   })
 
+  // 내 예약만 보기 토글
+  const [showMyBookingsOnly, setShowMyBookingsOnly] = useState(false)
+
   // 오늘 날짜
   const today = new Date().toISOString().split('T')[0]
 
   // 예약 목록 가져오기
   const fetchBookings = async () => {
+    if (!isLoggedIn || !user) return
+    
     setLoading(true)
     try {
       const params = new URLSearchParams()
@@ -78,7 +87,16 @@ export default function ReservationsPage() {
       const data = await response.json()
       
       if (data.success) {
-        setBookings(data.data)
+        let bookingData = data.data || []
+        
+        // 내 예약만 보기가 활성화된 경우에만 필터링
+        if (showMyBookingsOnly) {
+          bookingData = bookingData.filter((booking: Booking) => 
+            booking.employeeId === user.employeeId
+          )
+        }
+        
+        setBookings(bookingData)
       }
     } catch (error) {
       console.error('예약 목록 로딩 실패:', error)
@@ -107,7 +125,7 @@ export default function ReservationsPage() {
 
   useEffect(() => {
     fetchBookings()
-  }, [filters, selectedDate])
+  }, [filters, selectedDate, showMyBookingsOnly])
 
   // 필터 적용
   const applyFilter = (key: string, value: string) => {
@@ -125,6 +143,7 @@ export default function ReservationsPage() {
       roomId: '',
       status: 'confirmed',
     })
+    setShowMyBookingsOnly(false)
   }
 
   // 주달력 관련 함수들
@@ -249,8 +268,6 @@ export default function ReservationsPage() {
     setPinInput('')
   }
 
-
-
   // 상태 표시 컴포넌트
   const StatusBadge = ({ status }: { status: string }) => {
     const getStatusInfo = (status: string) => {
@@ -308,15 +325,16 @@ export default function ReservationsPage() {
   }
 
   // 필터된 예약 개수 - 확정 상태는 기본값이므로 활성 필터로 간주하지 않음
-  const hasActiveFilters = filters.date || filters.roomId || (filters.status !== 'confirmed' && filters.status !== '')
+  const hasActiveFilters = filters.date || filters.roomId || (filters.status !== 'confirmed' && filters.status !== '') || showMyBookingsOnly
   const filteredCount = bookings.length
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* 헤더 */}
-      <header className="bg-white shadow-soft border-b border-gray-100 sticky top-0 z-20">
-        <div className="px-4 py-4">
-          <div className="flex items-center justify-between">
+  // 로그인이 필요함을 알리는 화면
+  if (!isLoggedIn) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        {/* 헤더 */}
+        <header className="bg-white shadow-soft border-b border-gray-100 sticky top-0 z-10">
+          <div className="px-4 py-4">
             <div className="flex items-center gap-3">
               <button 
                 onClick={() => router.back()}
@@ -324,26 +342,103 @@ export default function ReservationsPage() {
               >
                 <ArrowLeft className="w-6 h-6 text-gray-600" />
               </button>
-              <div>
-                <h1 className="text-lg font-semibold text-gray-900">예약 현황</h1>
-                <p className="text-sm text-gray-500">
-                  {selectedDate === today ? '오늘' : formatDate(selectedDate)} {filteredCount}개의 예약
-                </p>
+              <h1 className="text-lg font-semibold text-gray-900">내 예약</h1>
+            </div>
+          </div>
+        </header>
+
+        {/* 로그인 필요 안내 */}
+        <div className="max-w-md mx-auto px-4 py-8">
+          <div className="bg-white rounded-xl p-8 shadow-sm text-center">
+            <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Lock className="w-8 h-8 text-orange-600" />
+            </div>
+            
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">
+              로그인이 필요합니다
+            </h2>
+            
+            <p className="text-gray-600 mb-6">
+              예약 관리 기능을 사용하려면<br/>
+              사번으로 로그인해주세요.
+            </p>
+            
+            <div className="space-y-3">
+              <button
+                onClick={() => router.push('/')}
+                className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 flex items-center justify-center gap-2"
+              >
+                <LogIn className="w-4 h-4" />
+                로그인하러 가기
+              </button>
+              
+              <button
+                onClick={() => router.back()}
+                className="w-full bg-gray-100 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-200"
+              >
+                뒤로 가기
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // 기존 컴포넌트 내용 (로그인된 경우)
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* 헤더 */}
+      <header className="bg-white shadow-soft border-b border-gray-100 sticky top-0 z-10">
+        <div className="px-4 py-4">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => router.back()}
+              className="p-2 rounded-xl hover:bg-gray-100 touch-feedback"
+            >
+              <ArrowLeft className="w-6 h-6 text-gray-600" />
+            </button>
+            <div>
+              <h1 className="text-lg font-semibold text-gray-900">
+                {showMyBookingsOnly ? '내 예약' : '예약 현황'}
+              </h1>
+              {/* 로그인 사용자 표시 */}
+              <div className="text-xs text-gray-500">
+                {user?.name || user?.employeeId}
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* 내 예약 보기 토글 */}
+      <div className="max-w-md mx-auto px-4 py-3">
+        <div className="bg-white border border-gray-200 rounded-lg p-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <User className="w-4 h-4 text-gray-600" />
+              <div className="text-sm text-gray-700">
+                {showMyBookingsOnly ? (
+                  <span><span className="font-medium">{user?.name || user?.employeeId}</span>님의 예약만 표시</span>
+                ) : (
+                  <span>모든 확정 예약 표시</span>
+                )}
               </div>
             </div>
             
             <button
-              onClick={() => setShowFilters(true)}
-              className="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 touch-feedback relative"
+              onClick={() => setShowMyBookingsOnly(!showMyBookingsOnly)}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                showMyBookingsOnly 
+                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
             >
-              <Filter className="w-6 h-6 text-gray-600" />
-              {hasActiveFilters && (
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary-500 rounded-full"></div>
-              )}
+              {showMyBookingsOnly ? '전체 보기' : '내 예약만'}
             </button>
           </div>
         </div>
-      </header>
+      </div>
 
       {/* 주달력 */}
       <div className="bg-white border-b border-gray-100 px-4 py-4">
@@ -438,6 +533,14 @@ export default function ReservationsPage() {
               <span className="inline-flex items-center gap-1 bg-primary-100 text-primary-800 px-2 py-1 rounded-full text-xs">
                 <StatusBadge status={filters.status} />
                 <button onClick={() => applyFilter('status', 'confirmed')}>
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+            {showMyBookingsOnly && (
+              <span className="inline-flex items-center gap-1 bg-primary-100 text-primary-800 px-2 py-1 rounded-full text-xs">
+                내 예약만
+                <button onClick={() => setShowMyBookingsOnly(false)}>
                   <X className="w-3 h-3" />
                 </button>
               </span>

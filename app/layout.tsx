@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import NotificationProvider from './components/NotificationProvider'
+import { UserProvider } from './contexts/UserContext'
 import PWAScript from './components/PWAScript'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -92,18 +93,20 @@ export default function RootLayout({
       <body className={`${inter.className} antialiased`}>
         {/* 앱 컨테이너 */}
         <div id="app-root" className="min-h-screen bg-gray-50">
-          <NotificationProvider>
-            {/* Safe Area 최상단 */}
-            <div className="safe-area-top" />
-            
-            {/* 메인 콘텐츠 */}
-            <main className="relative">
-              {children}
-            </main>
-            
-            {/* Safe Area 최하단 */}
-            <div className="safe-area-bottom" />
-          </NotificationProvider>
+          <UserProvider>
+            <NotificationProvider>
+              {/* Safe Area 최상단 */}
+              <div className="safe-area-top" />
+              
+              {/* 메인 콘텐츠 */}
+              <main className="relative">
+                {children}
+              </main>
+              
+              {/* Safe Area 최하단 */}
+              <div className="safe-area-bottom" />
+            </NotificationProvider>
+          </UserProvider>
         </div>
         
         {/* PWA 스크립트 */}

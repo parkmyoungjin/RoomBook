@@ -11,8 +11,11 @@ import {
   FileText,
   User,
   Check,
-  AlertCircle
+  AlertCircle,
+  Lock,
+  LogIn
 } from 'lucide-react'
+import { useUser } from '@/app/contexts/UserContext'
 
 interface Room {
   id: string
@@ -26,10 +29,12 @@ interface Room {
 export default function NewBookingPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { user, isLoggedIn } = useUser()
   const [loading, setLoading] = useState(false)
   const [rooms, setRooms] = useState<Room[]>([])
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [successMessage, setSuccessMessage] = useState('')
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false)
 
   // 폼 데이터
   const [formData, setFormData] = useState({
@@ -90,6 +95,17 @@ export default function NewBookingPage() {
     }
   }, [searchParams])
 
+  // 로그인한 사용자 정보 자동 입력
+  useEffect(() => {
+    if (isLoggedIn && user) {
+      setFormData(prev => ({
+        ...prev,
+        bookerName: user.name || '',
+        employeeId: user.employeeId || ''
+      }))
+    }
+  }, [isLoggedIn, user])
+
   // 회의실 목록 가져오기
   useEffect(() => {
     const fetchRooms = async () => {
@@ -107,6 +123,17 @@ export default function NewBookingPage() {
 
     fetchRooms()
   }, [])
+
+  // 로그인한 사용자 정보 자동 입력
+  useEffect(() => {
+    if (isLoggedIn && user) {
+      setFormData(prev => ({
+        ...prev,
+        bookerName: user.name || '',
+        employeeId: user.employeeId || ''
+      }))
+    }
+  }, [isLoggedIn, user])
 
   // 입력값 변경 핸들러
   const handleInputChange = (field: string, value: string | number) => {
@@ -193,6 +220,36 @@ export default function NewBookingPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // 로그인 필요 화면
+  if (!isLoggedIn) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-soft p-8 max-w-sm w-full text-center">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Lock className="w-8 h-8 text-red-600" />
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">로그인 필요</h2>
+          <p className="text-gray-600 mb-6">예약을 하려면 먼저 로그인해주세요.</p>
+          <div className="space-y-3">
+            <button
+              onClick={() => router.push('/')}
+              className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white py-3 px-4 rounded-xl font-medium hover:bg-blue-700"
+            >
+              <LogIn className="w-4 h-4" />
+              홈으로 가서 로그인
+            </button>
+            <button
+              onClick={() => router.back()}
+              className="w-full text-gray-600 py-2 px-4 rounded-xl hover:bg-gray-100"
+            >
+              돌아가기
+            </button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   // 성공 메시지 표시 중일 때

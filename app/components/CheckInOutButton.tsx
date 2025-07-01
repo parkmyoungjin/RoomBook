@@ -48,8 +48,8 @@ export default function CheckInOutButton({ booking, onStatusChange }: CheckInOut
       return;
     }
 
-    // 1초마다 시간 체크
-    intervalRef.current = setInterval(() => {
+    // 시간 체크 함수
+    const checkTime = () => {
       const now = new Date();
       const bookingEnd = new Date(`${currentBooking.date} ${currentBooking.endTime}`);
       const minutesUntilEnd = Math.ceil((bookingEnd.getTime() - now.getTime()) / (1000 * 60));
@@ -67,7 +67,13 @@ export default function CheckInOutButton({ booking, onStatusChange }: CheckInOut
         console.log('⏰ 예약 시간 종료 - 자동 체크아웃 실행');
         handleAutoCheckout();
       }
-    }, 1000);
+    };
+
+    // 즉시 한 번 실행
+    checkTime();
+    
+    // 30초마다 시간 체크 (성능 개선: 1초 → 30초)
+    intervalRef.current = setInterval(checkTime, 30000);
 
     return () => {
       if (intervalRef.current) {

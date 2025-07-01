@@ -549,8 +549,8 @@ export const updateBooking = async (
       currentRow[3], // title
       currentRow[4], // bookerName
       currentRow[5], // employeeId
-      currentRow[6], // startTime
-      currentRow[7], // endTime
+      updates.startTime !== undefined ? updates.startTime : currentRow[6], // startTime
+      updates.endTime !== undefined ? updates.endTime : currentRow[7], // endTime
       currentRow[8], // date
       updates.status || currentRow[9], // status
       currentRow[10], // purpose
