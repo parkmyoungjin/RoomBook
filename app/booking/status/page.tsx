@@ -39,6 +39,10 @@ export default function BookingStatusPage() {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(false)
 
+  // 새로운 상태 추가: 월별 예약 데이터
+  const [monthlyBookings, setMonthlyBookings] = useState<Record<string, Booking[]>>({})
+  const [loadingMonthlyData, setLoadingMonthlyData] = useState(false)
+
   // 다중 예약 관련 상태
   const [isBulkMode, setIsBulkMode] = useState(false)
   const [selectedDates, setSelectedDates] = useState<string[]>([])
@@ -125,6 +129,79 @@ export default function BookingStatusPage() {
   }
 
   const today = getTodayString()
+
+  // 🎯 월별 예약 데이터 가져오기
+  const fetchMonthlyBookings = async () => {
+    if (!selectedRoom) return
+
+    setLoadingMonthlyData(true)
+    try {
+      const year = currentMonth.getFullYear()
+      const month = currentMonth.getMonth() + 1
+      
+      // 현재 달의 모든 날짜 생성
+      const startDate = new Date(year, month - 1, 1)
+      const endDate = new Date(year, month, 0)
+      
+      const dailyBookingsData: Record<string, Booking[]> = {}
+      
+      // 각 날짜별로 예약 데이터 가져오기
+      const promises = []
+      for (let day = 1; day <= endDate.getDate(); day++) {
+        const date = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`
+        promises.push(
+          fetch(`/api/reservations?roomId=${selectedRoom}&date=${date}`)
+            .then(response => response.json())
+            .then(data => {
+              if (data.success) {
+                const activeBookings = (data.data || []).filter((booking: Booking) => 
+                  booking.status !== 'cancelled'
+                )
+                dailyBookingsData[date] = activeBookings
+              } else {
+                dailyBookingsData[date] = []
+              }
+            })
+            .catch(error => {
+              console.error(`날짜 ${date} 예약 데이터 로딩 실패:`, error)
+              dailyBookingsData[date] = []
+            })
+        )
+      }
+      
+      await Promise.all(promises)
+      setMonthlyBookings(dailyBookingsData)
+    } catch (error) {
+      console.error('월별 예약 데이터 로딩 실패:', error)
+    } finally {
+      setLoadingMonthlyData(false)
+    }
+  }
+
+  // 날짜별 예약 개수 가져오기
+  const getBookingCountForDate = (date: Date): number => {
+    const dateString = formatDate(date)
+    const bookingsForDate = monthlyBookings[dateString] || []
+    return bookingsForDate.length
+  }
+
+  // 예약 개수에 따른 색상 클래스 반환
+  const getBookingCountColorClass = (count: number): string => {
+    if (count === 0) return ''
+    if (count >= 1 && count <= 3) return 'bg-green-100 border-green-300 text-green-800'
+    if (count >= 4 && count <= 6) return 'bg-yellow-100 border-yellow-300 text-yellow-800'
+    if (count >= 7) return 'bg-red-100 border-red-300 text-red-800'
+    return ''
+  }
+
+  // 예약 개수에 따른 작은 표시점 색상
+  const getBookingCountDotColor = (count: number): string => {
+    if (count === 0) return ''
+    if (count >= 1 && count <= 3) return 'bg-green-500'
+    if (count >= 4 && count <= 6) return 'bg-yellow-500'
+    if (count >= 7) return 'bg-red-500'
+    return ''
+  }
 
   // 🎯 깔끔한 날짜 선택 로직 (드래그 제거)
   const handleDateClick = (date: Date) => {
@@ -292,6 +369,13 @@ export default function BookingStatusPage() {
       }))
     }
   }, [isBulkMode, user, isLoggedIn])
+
+  // 회의실이나 월이 변경될 때 월별 데이터 다시 로드
+  useEffect(() => {
+    if (selectedRoom) {
+      fetchMonthlyBookings()
+    }
+  }, [selectedRoom, currentMonth])
 
   const fetchBookings = async () => {
     if (!selectedRoom || !selectedDate) return
@@ -682,6 +766,30 @@ export default function BookingStatusPage() {
           </div>
         )}
 
+        {/* 예약 빈도 범례 추가 */}
+        {selectedRoom && !isBulkMode && (
+          <div className="bg-white rounded-xl p-4 shadow-sm mb-4">
+            <h4 className="text-sm font-medium text-gray-900 mb-3">📊 예약 빈도 표시</h4>
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                <span className="text-gray-600">1~3개</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                <span className="text-gray-600">4~6개</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                <span className="text-gray-600">7개 이상</span>
+              </div>
+            </div>
+            {loadingMonthlyData && (
+              <div className="text-xs text-gray-500 mt-2">🔄 예약 데이터 로딩 중...</div>
+            )}
+          </div>
+        )}
+
         {/* 달력 */}
         <div className="bg-white rounded-xl p-4 shadow-sm mb-4">
           <div className="flex items-center justify-between mb-4">
@@ -729,6 +837,11 @@ export default function BookingStatusPage() {
                   const isThisMonth = isCurrentMonth(date)
                   const isRangeStart = rangeStart === dateString
                   const isUnavailable = isBulkMode && unavailableDates.includes(dateString)
+                  
+                  // 🎯 예약 개수 및 색상 계산
+                  const bookingCount = selectedRoom && isThisMonth ? getBookingCountForDate(date) : 0
+                  const bookingColorClass = getBookingCountColorClass(bookingCount)
+                  const dotColorClass = getBookingCountDotColor(bookingCount)
 
                   return (
                     <button
@@ -742,24 +855,35 @@ export default function BookingStatusPage() {
                       }}
                       disabled={isPast || isUnavailable}
                       className={`
-                        aspect-square flex items-center justify-center text-sm rounded-lg 
-                        transition-all duration-200 ease-in-out cursor-pointer relative
-                        ${isSelected && isBulkMode ? 
-                          'bg-blue-500 text-white shadow-md transform-gpu' : 
-                          ''}
-                        ${isSelected && !isBulkMode ? 'bg-blue-500 text-white' : ''}
-                        ${isRangeStart ? 'ring-2 ring-blue-300 bg-blue-100' : ''}
-                        ${isCurrentDay && !isSelected && !isUnavailable ? 'bg-blue-100 text-blue-600' : ''}
-                        ${isPast ? 'text-gray-300 cursor-not-allowed' : ''}
-                        ${isUnavailable ? 'bg-red-100 text-red-400 cursor-not-allowed opacity-50' : ''}
-                        ${!isPast && !isUnavailable && !isSelected && !isCurrentDay ? 'hover:bg-gray-100 active:scale-95' : ''}
-                        ${!isThisMonth ? 'text-gray-300' : ''}
-                        ${!isPast && !isSelected && !isCurrentDay && !isUnavailable && isThisMonth && dayIndex === 0 ? 'text-red-500' : ''}
-                        ${!isPast && !isSelected && !isCurrentDay && !isUnavailable && isThisMonth && dayIndex === 6 ? 'text-blue-500' : ''}
-                        ${!isPast && !isSelected && !isCurrentDay && !isUnavailable && isThisMonth && dayIndex !== 0 && dayIndex !== 6 ? 'text-gray-700' : ''}
+                        relative h-12 w-full rounded-lg text-sm font-medium transition-all duration-200
+                        ${isPast 
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                          : isUnavailable
+                            ? 'bg-red-50 text-red-400 cursor-not-allowed border border-red-200'
+                            : isSelected
+                              ? 'bg-blue-600 text-white shadow-md'
+                              : isCurrentDay
+                                ? 'bg-blue-50 text-blue-600 border-2 border-blue-300'
+                                : isThisMonth
+                                  ? bookingCount > 0 && !isBulkMode
+                                    ? `${bookingColorClass} border hover:shadow-md`
+                                    : 'hover:bg-gray-100 text-gray-700 border border-transparent'
+                                  : 'text-gray-300 hover:bg-gray-50'
+                        }
                       `}
                     >
-                      {date.getDate()}
+                      <span className={dayIndex === 0 ? 'text-red-500' : dayIndex === 6 ? 'text-blue-500' : ''}>
+                        {date.getDate()}
+                      </span>
+                      
+                      {/* 예약 개수 표시 점 */}
+                      {!isBulkMode && selectedRoom && isThisMonth && bookingCount > 0 && (
+                        <div className="absolute bottom-1 right-1 flex items-center gap-1">
+                          <div className={`w-2 h-2 rounded-full ${dotColorClass}`}></div>
+                          <span className="text-xs">{bookingCount}</span>
+                        </div>
+                      )}
+
                       {isSelected && isBulkMode && (
                         <div className="absolute -top-1 -right-1 w-4 h-4 bg-white rounded-full flex items-center justify-center">
                           <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
