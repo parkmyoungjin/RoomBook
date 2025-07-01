@@ -10,7 +10,18 @@ const getKoreanTime = (): Date => {
 
 const formatKoreanDateTime = (): string => {
   const koreanTime = getKoreanTime()
-  return koreanTime.toISOString()
+  
+  // 한국 시간을 직접 문자열로 포맷팅 (UTC로 변환하지 않음)
+  const year = koreanTime.getUTCFullYear()
+  const month = String(koreanTime.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(koreanTime.getUTCDate()).padStart(2, '0')
+  const hours = String(koreanTime.getUTCHours()).padStart(2, '0')
+  const minutes = String(koreanTime.getUTCMinutes()).padStart(2, '0')
+  const seconds = String(koreanTime.getUTCSeconds()).padStart(2, '0')
+  const milliseconds = String(koreanTime.getUTCMilliseconds()).padStart(3, '0')
+  
+  // 한국 시간대 표시 (+09:00)
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${milliseconds}+09:00`
 }
 
 // 환경변수 검증
@@ -208,8 +219,8 @@ export const getBookings = async (date?: string): Promise<Booking[]> => {
         checkOutTime: row[15] || '',
         actualStartTime: row[16] || '',
         actualEndTime: row[17] || '',
-        isCheckedIn: row[18] === 'true',
-        isNoShow: row[19] === 'true',
+        isCheckedIn: (row[18] || '').toUpperCase() === 'TRUE',
+        isNoShow: (row[19] || '').toUpperCase() === 'TRUE',
         autoReleaseTime: row[20] || '',
       }))
 
@@ -365,7 +376,7 @@ export const updateBookingStatus = async (
   }
 }
 
-// 예약 시간 충돌 검사
+// 예약 시간 충돌 검사 (미체크아웃 상황 고려)
 export const checkBookingConflict = async (
   roomId: string,
   date: string,
@@ -375,6 +386,7 @@ export const checkBookingConflict = async (
 ): Promise<boolean> => {
   try {
     const bookings = await getBookings(date)
+    const currentTime = new Date()
     
     const conflictingBookings = bookings.filter(booking => {
       if (booking.roomId !== roomId) return false
@@ -386,11 +398,37 @@ export const checkBookingConflict = async (
       const requestStart = new Date(`${date}T${startTime}`)
       const requestEnd = new Date(`${date}T${endTime}`)
       
-      // 시간 겹침 검사
-      return requestStart < bookingEnd && requestEnd > bookingStart
+      // 1. 기본 시간 겹침 검사
+      const timeOverlap = requestStart < bookingEnd && requestEnd > bookingStart
+      
+      // 2. 🔥 핵심 개선: 체크인했지만 체크아웃 안한 예약이 새 예약 시간과 겹치는 경우
+      const isStillInUse = booking.isCheckedIn && 
+                          !booking.checkOutTime && 
+                          currentTime > bookingEnd && // 예약 시간은 끝났지만
+                          requestStart < new Date(currentTime.getTime() + 30 * 60 * 1000) // 새 예약이 현재 시간 + 30분 이내
+      
+      console.log('충돌 검사:', {
+        bookingId: booking.id,
+        timeOverlap,
+        isStillInUse,
+        isCheckedIn: booking.isCheckedIn,
+        checkOutTime: booking.checkOutTime,
+        bookingEndTime: booking.endTime,
+        currentTime: currentTime.toISOString(),
+        requestStartTime: startTime
+      })
+      
+      return timeOverlap || isStillInUse
     })
 
-    return conflictingBookings.length > 0
+    const hasConflict = conflictingBookings.length > 0
+    console.log('충돌 검사 결과:', {
+      hasConflict,
+      conflictingBookingsCount: conflictingBookings.length,
+      conflictingBookings: conflictingBookings.map(b => ({ id: b.id, isCheckedIn: b.isCheckedIn, checkOutTime: b.checkOutTime }))
+    })
+
+    return hasConflict
   } catch (error) {
     console.error('예약 충돌 검사 실패:', error)
     return true // 에러 시 안전하게 충돌로 판단
@@ -432,6 +470,12 @@ export const getBookingById = async (bookingId: string): Promise<Booking | null>
       return null
     }
 
+    console.log('getBookingById - 원본 행 데이터:', row)
+    console.log('getBookingById - isCheckedIn 변환:', {
+      원본값: row[18],
+      변환결과: (row[18] || '').toUpperCase() === 'TRUE'
+    })
+
     return {
       id: row[0] || '',
       roomId: row[1] || '',
@@ -451,8 +495,8 @@ export const getBookingById = async (bookingId: string): Promise<Booking | null>
       checkOutTime: row[15] || '',
       actualStartTime: row[16] || '',
       actualEndTime: row[17] || '',
-      isCheckedIn: row[18] === 'true',
-      isNoShow: row[19] === 'true',
+      isCheckedIn: (row[18] || '').toUpperCase() === 'TRUE',
+      isNoShow: (row[19] || '').toUpperCase() === 'TRUE',
       autoReleaseTime: row[20] || '',
     }
   } catch (error) {
@@ -467,6 +511,8 @@ export const updateBooking = async (
   updates: Partial<Booking>
 ): Promise<boolean> => {
   try {
+    console.log('updateBooking 시작:', { bookingId, updates })
+    
     const sheets = await getSheetsClient()
     const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID
     
@@ -491,6 +537,8 @@ export const updateBooking = async (
 
     // 현재 데이터 가져오기
     const currentRow = rows[rowIndex]
+    console.log('업데이트 전 현재 행:', currentRow)
+    
     const updatedAt = formatKoreanDateTime() // 한국 시간 사용
 
     // 업데이트할 데이터 준비
@@ -518,8 +566,15 @@ export const updateBooking = async (
       updates.autoReleaseTime !== undefined ? updates.autoReleaseTime : currentRow[20], // autoReleaseTime
     ]
 
+    console.log('업데이트할 행:', updatedRow)
+    console.log('isCheckedIn 값 확인:', {
+      original: currentRow[18],
+      update: updates.isCheckedIn,
+      final: updates.isCheckedIn !== undefined ? updates.isCheckedIn.toString() : currentRow[18]
+    })
+
     // 스프레드시트 업데이트
-    await sheets.spreadsheets.values.update({
+    const updateResult = await sheets.spreadsheets.values.update({
       spreadsheetId,
       range: `${sheetName}!A${rowIndex + 2}:U${rowIndex + 2}`, // +2는 헤더 때문
       valueInputOption: 'USER_ENTERED',
@@ -527,6 +582,8 @@ export const updateBooking = async (
         values: [updatedRow],
       },
     })
+    
+    console.log('Google Sheets 업데이트 결과:', updateResult.data)
 
     return true
   } catch (error) {
@@ -537,12 +594,20 @@ export const updateBooking = async (
 
 // 체크인 처리
 export const checkInBooking = async (bookingId: string): Promise<boolean> => {
+  console.log('checkInBooking 시작:', bookingId)
+  
   const now = getKoreanTime() // 한국 시간 사용
   
   const booking = await getBookingById(bookingId)
   if (!booking) {
     throw new Error('예약을 찾을 수 없습니다.')
   }
+  
+  console.log('체크인 전 예약 상태:', {
+    id: booking.id,
+    isCheckedIn: booking.isCheckedIn,
+    checkInTime: booking.checkInTime
+  })
   
   // 체크인 시간 검증 (예약 시간 15분 전부터 가능)
   const bookingStart = new Date(`${booking.date} ${booking.startTime}`)
@@ -558,12 +623,24 @@ export const checkInBooking = async (bookingId: string): Promise<boolean> => {
   }
   
   // 체크인 처리
-  return await updateBooking(bookingId, {
+  const checkInTime = formatKoreanDateTime()
+  console.log('체크인 데이터:', {
     isCheckedIn: true,
-    checkInTime: formatKoreanDateTime(), // 한국 시간 사용
-    actualStartTime: formatKoreanDateTime(), // 한국 시간 사용
+    checkInTime: checkInTime,
+    actualStartTime: checkInTime,
     isNoShow: false,
   })
+  
+  const result = await updateBooking(bookingId, {
+    isCheckedIn: true,
+    checkInTime: checkInTime,
+    actualStartTime: checkInTime,
+    isNoShow: false,
+  })
+  
+  console.log('updateBooking 결과:', result)
+  
+  return result
 }
 
 // 체크아웃 처리

@@ -75,7 +75,7 @@ npm install
 
 #### 📋 bookings 워크시트
 ```
-| A (id) | B (roomId) | C (roomName) | D (title) | E (bookerName) | F (bookerEmail) | G (startTime) | H (endTime) | I (date) | J (status) | K (purpose) | L (participants) | M (createdAt) | N (updatedAt) |
+| A (id) | B (roomId) | C (roomName) | D (title) | E (bookerName) | F (employeeId) | G (startTime) | H (endTime) | I (date) | J (status) | K (purpose) | L (participants) | M (createdAt) | N (updatedAt) |
 |--------|------------|--------------|-----------|----------------|-----------------|---------------|-------------|----------|------------|-------------|------------------|---------------|---------------|
 ```
 

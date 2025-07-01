@@ -53,11 +53,11 @@ export default function ReservationsPage() {
     return weekStart
   })
 
-  // 필터 상태
+  // 필터 상태 - 기본값으로 확정된 예약만 표시
   const [filters, setFilters] = useState({
     date: '',
     roomId: '',
-    status: '' as '' | 'confirmed' | 'pending' | 'cancelled',
+    status: 'confirmed' as '' | 'confirmed' | 'pending' | 'cancelled',
   })
 
   // 오늘 날짜
@@ -118,12 +118,12 @@ export default function ReservationsPage() {
     setShowFilters(false)
   }
 
-  // 필터 초기화
+  // 필터 초기화 - 확정 상태는 기본값으로 유지
   const clearFilters = () => {
     setFilters({
       date: '',
       roomId: '',
-      status: '',
+      status: 'confirmed',
     })
   }
 
@@ -307,8 +307,8 @@ export default function ReservationsPage() {
     return null
   }
 
-  // 필터된 예약 개수
-  const hasActiveFilters = filters.date || filters.roomId || filters.status
+  // 필터된 예약 개수 - 확정 상태는 기본값이므로 활성 필터로 간주하지 않음
+  const hasActiveFilters = filters.date || filters.roomId || (filters.status !== 'confirmed' && filters.status !== '')
   const filteredCount = bookings.length
 
   return (
@@ -434,10 +434,10 @@ export default function ReservationsPage() {
                 </button>
               </span>
             )}
-            {filters.status && (
+            {filters.status && filters.status !== 'confirmed' && (
               <span className="inline-flex items-center gap-1 bg-primary-100 text-primary-800 px-2 py-1 rounded-full text-xs">
                 <StatusBadge status={filters.status} />
-                <button onClick={() => applyFilter('status', '')}>
+                <button onClick={() => applyFilter('status', 'confirmed')}>
                   <X className="w-3 h-3" />
                 </button>
               </span>
@@ -600,17 +600,17 @@ export default function ReservationsPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-3">상태</label>
                 <div className="space-y-2">
                   <button
-                    onClick={() => applyFilter('status', '')}
+                    onClick={() => applyFilter('status', 'confirmed')}
                     className={`w-full text-left p-3 rounded-xl border ${
-                      !filters.status ? 'border-primary-500 bg-primary-50' : 'border-gray-200'
+                      filters.status === 'confirmed' ? 'border-primary-500 bg-primary-50' : 'border-gray-200'
                     }`}
                   >
-                    전체
+                    전체 (확정된 예약)
                   </button>
                   {[
-                    { value: 'confirmed', label: '확정' },
                     { value: 'pending', label: '대기중' },
                     { value: 'cancelled', label: '취소됨' },
+                    { value: '', label: '모든 상태' },
                   ].map((status) => (
                     <button
                       key={status.value}
