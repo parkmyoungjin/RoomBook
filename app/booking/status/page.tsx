@@ -599,7 +599,7 @@ export default function BookingStatusPage() {
                   : 'bg-gray-100 text-gray-600'
               }`}
             >
-              {isBulkMode ? '다중 예약' : '단일 예약'}
+              {isBulkMode ? '단일 예약' : '다중 예약'}
             </button>
           </div>
           <div className="space-y-2">
@@ -1025,7 +1025,7 @@ export default function BookingStatusPage() {
           <div className="bg-white rounded-xl p-8 shadow-sm text-center">
             <div className="text-gray-400 text-sm">
               🗓️
-              <div className="mt-2">여러 날짜를 드래그하여 선택해주세요</div>
+              <div className="mt-2">여러 날짜를 선택해주세요</div>
             </div>
           </div>
         )}
